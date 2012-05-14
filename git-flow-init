@@ -1,4 +1,4 @@
-#
+#!/bin/sh
 # git-flow -- A collection of Git extensions to provide high-level
 # repository operations for Vincent Driessen's branching model.
 #
@@ -131,6 +131,8 @@ cmd_default() {
 		git config gitflow.branch.master "$master_branch"
 	fi
 
+
+
 	# add a develop branch if no such branch exists yet
 	local develop_branch
 	if gitflow_has_develop_configured && ! flag force; then
@@ -182,6 +184,56 @@ cmd_default() {
 		git config gitflow.branch.develop "$develop_branch"
 	fi
 
+	# add a branch beta if no such branch exists yet
+	local beta_branch
+	if gitflow_has_beta_configured && ! flag force; then
+		beta_branch=$(git config --get gitflow.branch.beta)
+	else
+		local default_suggestion
+		local should_check_existence
+		branch_count=$(git_local_branches | grep -v "^${master_branch}\$" | grep -v "^${develop_branch}\$" |wc -l)
+		if [ "$branch_count" -eq 0 ]; then
+			should_check_existence=NO
+			default_suggestion=$(git config --get gitflow.branch.beta || echo beta)
+		else
+			echo
+			echo "Which branch should be used for integration of the \"next release\"?"
+			git_local_branches | grep -v "^${master_branch}\$" | sed 's/^.*$/   - &/g'
+
+			should_check_existence=YES
+			default_suggestion=
+			for guess in $(git config --get gitflow.branch.beta) \
+			             'beta' 'int' 'integration' 'master'; do
+				if git_local_branch_exists "$guess"; then
+					default_suggestion="$guess"
+					break
+				fi
+			done		
+		fi
+
+		printf "Branch name for \"next release\" beta: [$default_suggestion] "
+		if noflag defaults; then
+			read answer
+		else
+			printf "\n"
+		fi
+		beta_branch=${answer:-$default_suggestion}
+
+		if [ "$master_branch" = "$beta_branch" ]; then
+			die "Production and integration branches should differ."
+		fi
+
+		# check existence in case of an already existing repo
+		if [ "$should_check_existence" = "YES" ]; then
+			git_local_branch_exists "$beta_branch" || \
+				die "Local branch '$beta_branch' does not exist."
+		fi
+
+		# store the name of the beta branch
+		git config gitflow.branch.beta "$beta_branch"
+	fi			
+	#------------------------------------------------------------
+
 	# Creation of HEAD
 	# ----------------
 	# We create a HEAD now, if it does not exist yet (in a fresh repo). We need
@@ -214,6 +266,14 @@ cmd_default() {
 		created_gitflow_branch=1
 	fi
 
+	if ! git_local_branch_exists "$beta_brach"; then
+		if git_remote_branch_exists "origin/$beta_brach"; then
+			git branch "$beta_brach" "origin/$beta_brach" >/dev/null 2>&1
+		else
+			git branch --no-track "$beta_brach" "$master_branch"
+		fi
+		created_gitflow_branch=1
+	fi
 	# assert the gitflow repo has been correctly initialized
 	gitflow_is_initialized
 
@@ -227,6 +287,7 @@ cmd_default() {
 	   ! git config --get gitflow.prefix.feature >/dev/null 2>&1 || 
 	   ! git config --get gitflow.prefix.release >/dev/null 2>&1 || 
 	   ! git config --get gitflow.prefix.hotfix >/dev/null 2>&1 || 
+	   ! git config --get gitflow.prefix.betafix >/dev/null 2>&1 || 
 	   ! git config --get gitflow.prefix.support >/dev/null 2>&1 || 
 	   ! git config --get gitflow.prefix.versiontag >/dev/null 2>&1; then
 		echo
@@ -275,6 +336,19 @@ cmd_default() {
 		git config gitflow.prefix.hotfix "$prefix"
 	fi
 
+
+	# BetaFix branches
+	if ! git config --get gitflow.prefix.betafix >/dev/null 2>&1 || flag force; then
+		default_suggestion=$(git config --get gitflow.prefix.betafix || echo betafix/)
+		printf "BetaFix branches? [$default_suggestion] "
+		if noflag defaults; then
+			read answer
+		else
+			printf "\n"
+		fi
+		[ "$answer" = "-" ] && prefix= || prefix=${answer:-$default_suggestion}
+		git config gitflow.prefix.betafix "$prefix"
+	fi
 
 	# Support branches
 	if ! git config --get gitflow.prefix.support >/dev/null 2>&1 || flag force; then
