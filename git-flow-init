@@ -198,12 +198,12 @@ cmd_default() {
 		else
 			echo
 			echo "Which branch should be used for integration of the \"next release\"?"
-			git_local_branches | grep -v "^${master_branch}\$" | sed 's/^.*$/   - &/g'
+			git_local_branches | grep -v "^${develop_branch}\$"  | grep -v "^${master_branch}\$" | sed 's/^.*$/   - &/g'
 
 			should_check_existence=YES
 			default_suggestion=
 			for guess in $(git config --get gitflow.branch.beta) \
-			             'beta' 'int' 'integration' 'master'; do
+			             'beta' 'develop' 'int' 'integration' 'master'; do
 				if git_local_branch_exists "$guess"; then
 					default_suggestion="$guess"
 					break
@@ -219,7 +219,7 @@ cmd_default() {
 		fi
 		beta_branch=${answer:-$default_suggestion}
 
-		if [ "$master_branch" = "$beta_branch" ]; then
+		if [ "$master_branch" = "$beta_branch"  ] || [ "$develop_branch" = "$beta_branch" ]; then
 			die "Production and integration branches should differ."
 		fi
 
@@ -266,11 +266,11 @@ cmd_default() {
 		created_gitflow_branch=1
 	fi
 
-	if ! git_local_branch_exists "$beta_brach"; then
-		if git_remote_branch_exists "origin/$beta_brach"; then
-			git branch "$beta_brach" "origin/$beta_brach" >/dev/null 2>&1
+	if ! git_local_branch_exists "$beta_branch"; then
+		if git_remote_branch_exists "origin/$beta_branch"; then
+			git branch "$beta_branch" "origin/$beta_branch" >/dev/null 2>&1
 		else
-			git branch --no-track "$beta_brach" "$master_branch"
+			git branch --no-track "$beta_branch" "$master_branch"
 		fi
 		created_gitflow_branch=1
 	fi
