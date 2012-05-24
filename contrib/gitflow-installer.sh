@@ -54,7 +54,7 @@ case "$1" in
 			echo "Using existing repo: $REPO_NAME"
 		else
 			echo "Cloning repo from GitHub to $REPO_NAME"
-			git clone "$REPO_HOME" "$REPO_NAME"
+			git clone -b develop "$REPO_HOME" "$REPO_NAME"
 		fi
 		if [ -f "$REPO_NAME/$SUBMODULE_FILE" ] ; then
 			echo "Submodules look up to date"
